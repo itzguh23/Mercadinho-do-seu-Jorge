@@ -1,0 +1,327 @@
+
+import time
+import json
+import builtins
+
+ARQUIVO = "estoque.json"
+
+# ===================================
+#      EFEITO DE DIGITAÇÃO
+# ===================================
+
+def input(*args, **kwargs):
+    texto = " ".join(map(str, args))
+
+    for letra in texto:
+        builtins.print(letra, end="", flush=True)
+        time.sleep(0.01)
+
+    return builtins.input()
+
+
+def print(*args, **kwargs):
+    texto = " ".join(map(str, args))
+
+    if texto.startswith("/" * 160):
+        builtins.print(texto, **kwargs)
+        return
+
+    end = kwargs.get("end", "\n")
+
+    for letra in texto:
+        builtins.print(letra, end="", flush=True)
+        time.sleep(0.01)
+
+    builtins.print(end=end)
+
+
+# ===================================
+#       SISTEMA JSON
+# ===================================
+
+def salvar_produtos():
+    with open(ARQUIVO, "w", encoding="utf-8") as arquivo:
+        json.dump(produtos, arquivo, ensure_ascii=False, indent=4)
+
+
+def carregar_produtos():
+    try:
+        with open(ARQUIVO, "r", encoding="utf-8") as arquivo:
+            dados = json.load(arquivo)
+
+            # Compatibilidade com cadastros antigos
+            for item in dados:
+                item.setdefault("quantidade", 0)
+
+            return dados
+
+    except FileNotFoundError:
+        return []
+
+    except json.JSONDecodeError:
+        print("\nArquivo de estoque inválido!")
+        return []
+
+
+produtos = carregar_produtos()
+
+
+# ===================================
+#          MENU PRINCIPAL
+# ===================================
+
+while True:
+    print("\n===================================")
+    print("===== Mercadinho do seu Jorge =====")
+    print("==========     MENU      ==========")
+    print("\n1 - Cadastrar produto")
+    print("2 - Listar produtos")
+    print("3 - Editar produto")
+    print("4 - Remover produto")
+    print("0 - Sair")
+
+    opcao = input('''
+Escolha uma opção:
+>> ''')
+
+
+    # ===================================
+    #       1 - CADASTRAR PRODUTO
+    # ===================================
+
+    if opcao == "1":
+
+        produto = input('''
+Digite o nome do produto:
+>> ''').strip().title()
+
+        if produto == "":
+            print("\nDigite um nome válido!")
+
+        else:
+            tamanho = input('''
+Digite o tamanho do produto:
+>> ''').strip().lower()
+
+            if tamanho == "":
+                print("\nDigite um tamanho válido!")
+
+            elif any(
+                item["nome"].lower() == produto.lower()
+                and item["tamanho"].lower() == tamanho.lower()
+                for item in produtos
+            ):
+                print("\nEsse produto já está cadastrado!")
+
+            else:
+                try:
+                    preco = float(input('''
+Digite o preço do produto:
+R$ >> ''').replace(",", "."))
+
+                    if preco < 0:
+                        print("\nO preço não pode ser negativo!")
+
+                    else:
+                        quantidade = int(input('''
+Digite a quantidade disponível:
+>> '''))
+
+                        if quantidade < 0:
+                            print("\nA quantidade não pode ser negativa!")
+
+                        else:
+                            produtos.append({
+                                "nome": produto,
+                                "tamanho": tamanho,
+                                "preco": preco,
+                                "quantidade": quantidade
+                            })
+
+                            salvar_produtos()
+
+                            print("\nProduto cadastrado com sucesso!")
+
+                except ValueError:
+                    print("\nDigite um preço ou quantidade válido!")
+
+        print()
+        print("/" * 160)
+
+
+    # ===================================
+    #        2 - LISTAR PRODUTOS
+    # ===================================
+
+    elif opcao == "2":
+
+        print("\n===== PRODUTOS CADASTRADOS =====")
+        print()
+
+        if len(produtos) == 0:
+            print("Nenhum produto cadastrado.")
+
+        else:
+            for i, item in enumerate(produtos):
+
+                print(
+                    f'{i + 1} - {item["nome"]} '
+                    f'({item["tamanho"]}) | '
+                    f'R$ {item["preco"]:.2f} | '
+                    f'Estoque: {item["quantidade"]} unidades'
+                    .replace(".", ",")
+                )
+
+                if item["quantidade"] == 0:
+                    print("   [SEM ESTOQUE]")
+
+        print()
+        print("/" * 160)
+
+
+    # ===================================
+    #         3 - EDITAR PRODUTO
+    # ===================================
+
+    elif opcao == "3":
+
+        print("\n===== EDITAR PRODUTO =====")
+        print()
+
+        if len(produtos) == 0:
+            print("Nenhum produto cadastrado.")
+
+        else:
+            for i, item in enumerate(produtos):
+
+                print(
+                    f'{i + 1} - {item["nome"]} '
+                    f'({item["tamanho"]}) | '
+                    f'R$ {item["preco"]:.2f} | '
+                    f'Estoque: {item["quantidade"]}'
+                    .replace(".", ",")
+                )
+
+            escolha = input('''
+Digite o número do produto que deseja editar:
+>> ''')
+
+            if escolha.isdigit() and 1 <= int(escolha) <= len(produtos):
+
+                indice = int(escolha) - 1
+
+                print(
+                    f'\nProduto selecionado: '
+                    f'{produtos[indice]["nome"]} '
+                    f'({produtos[indice]["tamanho"]})'
+                )
+
+                novo_preco = input('''
+Digite o novo preço (Enter para manter):
+R$ >> ''').replace(",", ".")
+
+                nova_quantidade = input('''
+Digite a nova quantidade (Enter para manter):
+>> ''')
+
+                try:
+                    preco = produtos[indice]["preco"]
+                    quantidade = produtos[indice]["quantidade"]
+
+                    if novo_preco != "":
+                        preco = float(novo_preco)
+
+                        if preco < 0:
+                            raise ValueError
+
+                    if nova_quantidade != "":
+                        quantidade = int(nova_quantidade)
+
+                        if quantidade < 0:
+                            raise ValueError
+
+                    produtos[indice]["preco"] = preco
+                    produtos[indice]["quantidade"] = quantidade
+
+                    salvar_produtos()
+
+                    print("\nProduto atualizado com sucesso!")
+
+                except ValueError:
+                    print("\nValor inválido! Nenhuma alteração foi realizada.")
+
+            else:
+                print("\nProduto não encontrado!")
+
+        print()
+        print("/" * 160)
+
+
+    # ===================================
+    #         4 - REMOVER PRODUTO
+    # ===================================
+
+    elif opcao == "4":
+
+        print("\n===== REMOVER PRODUTO =====")
+        print()
+
+        if len(produtos) == 0:
+            print("Nenhum produto cadastrado.")
+
+        else:
+            for i, item in enumerate(produtos):
+
+                print(
+                    f'{i + 1} - {item["nome"]} '
+                    f'({item["tamanho"]}) | '
+                    f'R$ {item["preco"]:.2f} | '
+                    f'Estoque: {item["quantidade"]}'
+                    .replace(".", ",")
+                )
+
+            escolha = input('''
+Digite o número do produto que deseja remover:
+>> ''')
+
+            if escolha.isdigit() and 1 <= int(escolha) <= len(produtos):
+
+                indice = int(escolha) - 1
+
+                removido = produtos.pop(indice)
+
+                salvar_produtos()
+
+                print(
+                    f'\nProduto {removido["nome"]} '
+                    f'({removido["tamanho"]}) '
+                    f'removido com sucesso!'
+                )
+
+            else:
+                print("\nProduto não encontrado!")
+
+        print()
+        print("/" * 160)
+
+
+    # ===================================
+    #             0 - SAIR
+    # ===================================
+
+    elif opcao == "0":
+
+        print("\nPrograma encerrado!")
+        print()
+        break
+
+
+    # ===================================
+    #          OPÇÃO INVÁLIDA
+    # ===================================
+
+    else:
+
+        print("\nOpção inválida! Tente novamente.")
+        print()
+        print("/" * 160)
